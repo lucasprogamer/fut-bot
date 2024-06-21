@@ -23,25 +23,6 @@ const specificGroup = 'wards';
 
 // Variáveis para gerenciar os confirmedPlayers e o jogo
 let confirmedPlayers = [
-    'Ronaldo Fenomeno',
-    'Cristiano Ronaldo',
-    'Lionel Messi',
-    'Neymar Jr.',
-    'Kylian Mbappe',
-    'Luka Modric',
-    'Mohamed Salah',
-    'Robert Lewandowski',
-    'Sergio Ramos',
-    'Virgil van Dijk',
-    'Manuel Neuer',
-    'Paulo Dybala',
-    'Eden Hazard',
-    'Raheem Sterling',
-    'Harry Kane',
-    'Sadio Mane',
-    'Toni Kroos',
-    'Paul Pogba',
-    'Zlatan Ibrahimovic'
 ];
 let listOpen = false;
 let chat = null;
