@@ -263,7 +263,7 @@ function handleNextMatch(message) {
     }
 
     let messageText = `Próxima partida:\n\n`;
-    messageText += `*Partida ${nextMatchIndex + 1} * \n *Time ${currentMatch[0] + 1}*\n`;
+    messageText += `🏟️ *Partida ${nextMatchIndex + 1} * \n *Time ${currentMatch[0] + 1}*\n`;
     messageText += `${formatPlayersResponse(team1)} \n\n vs  \n *Time ${currentMatch[1] + 1}* \n\n ${formatPlayersResponse(team2)}\n\n`;
 
     if (loser == null) {
@@ -301,11 +301,16 @@ function handleShowCurrentMatch(message, title = "Partida Atual") {
         return;
     }
 
+    if (currentMatch.length == 0) {
+        message.reply('Nenhuma partida em andamento.');
+        return;
+    }
+
     let team1 = teams[currentMatch[0]];
     let team2 = teams[currentMatch[1]];
 
     let messageText = `${title}:\n\n`;
-    messageText += `Partida ${nextMatchIndex} - Time ${currentMatch[0] + 1} vs Time ${currentMatch[1] + 1}\n\n`;
+    messageText += `🏟️ Partida ${nextMatchIndex} - Time ${currentMatch[0] + 1} vs Time ${currentMatch[1] + 1}\n\n`;
     messageText += `*Time ${currentMatch[0] + 1}*\n`;
     messageText += formatPlayersResponse(team1);
     messageText += `\n\n vs \n\n*Time ${currentMatch[1] + 1}*\n`;
@@ -415,10 +420,9 @@ function handleRearrangeTeams(Teams) {
 // Função para exibir a lista de comandos disponíveis
 function handleHelp(message) {
     let response = `*📋 Lista de comandos disponíveis:*\n\n`;
-    response += `- *${COMMAND_ENTER}*: _Para entrar na lista de confirmedPlayers._ ✅\n`;
-    response += `- *${COMMAND_CANCEL}*: _Para cancelar o jogo de futebol._ ❌\n`;
+    response += `- *${COMMAND_ENTER}*: _Para entrar na lista de confirmados._ ✅\n`;
     response += `- *${COMMAND_OPEN}*: _Para abrir a lista para adições._ 📂\n`;
-    response += `- *${COMMAND_LEAVE}*: _Para sair da lista de confirmedPlayers._ 🚪\n`;
+    response += `- *${COMMAND_LEAVE}*: _Para sair da lista de confirmados._ 🚪\n`;
     response += `- *${COMMAND_DRAW}*: _Para sortear os teams._ 🎲\n`;
     response += `- *${COMMAND_NEXT}*: _Para ver a próxima partida na sequência._ ⏭️\n`;
     response += `- *${COMMAND_HELP}*: _Para ver esta lista de comandos novamente._ 🆘\n`;
@@ -430,7 +434,7 @@ function handleHelp(message) {
 
 }
 
-// Função para formatar a lista de confirmedPlayers
+// Função para formatar a lista de confirmados
 function formatPlayersList() {
     let response = `*FUTEBOL DE TERÇA* ⚽\n\n`;
     response += ` 📍Local: Tiba Sport Center\n\n`;
