@@ -21,8 +21,8 @@ const COMMAND_ADD_PLAYER = /adicionar jogador (.+)$/i;
 // const specificGroup = 'Futebol das Terças ⚽';
 const specificGroup = 'wards';
 
-// Variáveis para gerenciar os confirmados e o jogo
-let confirmados = [
+// Variáveis para gerenciar os confirmedPlayers e o jogo
+let confirmedPlayers = [
     'Ronaldo Fenomeno',
     'Cristiano Ronaldo',
     'Lionel Messi',
@@ -43,18 +43,19 @@ let confirmados = [
     'Paul Pogba',
     'Zlatan Ibrahimovic'
 ];
-let listaAberta = false;
+let listOpen = false;
 let chat = null;
 let contact = null;
 
 // Limite máximo de pessoas na lista
-const limiteMaximo = 23;
+const maxPlayers = 23;
+const maxPlayerForTeam = 5;
 
-// Variáveis para gerenciar os times e a rotação
-let times = []; // Array para armazenar os times
-let proximoTimeIndex = 0; // Índice do próximo time na sequência
-let proximaPartidaIndex = 0; // Índice da próxima partida na sequência
-let partidaAtual = [];
+// Variáveis para gerenciar os teams e a rotação
+let teams = []; // Array para armazenar os teams
+let nextTeamIndex = 0; // Índice do próximo time na sequência
+let nextMatchIndex = 0; // Índice da próxima partida na sequência
+let currentMatch = [];
 
 let loser = null;
 
@@ -157,171 +158,180 @@ async function isAdmin() {
         resolve(can);
     });
 }
-// Função para adicionar um jogador à lista de confirmados
+// Função para adicionar um jogador à lista de confirmedPlayers
 function handleEnterList(message) {
-    if (!listaAberta) {
+    if (!listOpen) {
         message.reply('A lista não está aberta para adições no momento.');
         return;
     }
 
-    if (confirmados.length >= limiteMaximo) {
-        message.reply(`Desculpe, já atingimos o número máximo de ${limiteMaximo} pessoas na lista.`);
+    if (currentMatch.length > 0) {
+        message.reply('As partidas já estão em andamento solicite ao administrador para entrar na lista.');
         return;
     }
 
-    const nomeRemetente = message.rawData.notifyName;
-    if (!confirmados.includes(nomeRemetente)) {
-        confirmados.push(nomeRemetente);
+    if (confirmedPlayers.length >= maxPlayers) {
+        message.reply(`Desculpe, já atingimos o número máximo de ${maxPlayers} pessoas na lista.`);
+        return;
     }
 
-    message.reply(formatarListaConfirmados());
+    const contactName = message.rawData.notifyName;
+    if (!confirmedPlayers.includes(contactName)) {
+        confirmedPlayers.push(contactName);
+    }
+
+    message.reply(formatPlayersList());
 }
 
-// Função para exibir a lista de confirmados
+// Função para exibir a lista de confirmedPlayers
 function handleShowList(message) {
-    message.reply(formatarListaConfirmados());
+    message.reply(formatPlayersList());
 }
 
-// Função para abrir a lista de confirmados
+// Função para abrir a lista de confirmedPlayers
 async function handleOpenList(message) {
     if (!await isAdmin()) {
         message.reply('Apenas o administrador do grupo pode abrir e fechar a lista.');
         return;
     }
 
-    listaAberta = true;
+    listOpen = true;
     message.reply('A lista está aberta para adições. Envie "entrar na lista" para se adicionar.');
 
 }
 
-// Função para remover um jogador da lista de confirmados
+// Função para remover um jogador da lista de confirmedPlayers
 function handleLeaveList(message, player = null) {
     if (!player) {
         player = message.rawData.notifyName;
     }
-    const index = confirmados.findIndex(p => p.toLowerCase().trim() == player.toLowerCase().trim());
+    const index = confirmedPlayers.findIndex(p => p.toLowerCase().trim() == player.toLowerCase().trim());
     if (index !== -1) {
-        confirmados.splice(index, 1);
-        message.reply(formatarListaConfirmados());
+        confirmedPlayers.splice(index, 1);
+        message.reply(formatPlayersList());
     } else {
         message.reply(`Jogador não está na lista de confirmados.`);
     }
 }
 
-// Função para sortear os times
+// Função para sortear os teams
 async function handleDrawTeams(message) {
     if (!await isAdmin()) {
         message.reply('Apenas o administrador do grupo pode sortear os times.');
         return;
     }
-    const mensagemTimes = sortearTimes();
-    message.reply(mensagemTimes);
+    const messageTeams = suffleTeams();
+    message.reply(messageTeams);
 }
 
-// Função para mostrar os times sorteados
+// Função para mostrar os teams sorteados
 function handleShowTeams(message) {
-    if (times.length === 0) {
+    if (teams.length === 0) {
         message.reply('Os times ainda não foram sorteados.');
     } else {
-        let mensagem = 'Times sorteados:\n\n';
-        times.forEach((time, index) => {
-            mensagem += `Time ${index + 1}:\n`;
+        let response = 'Times sorteados:\n\n';
+        teams.forEach((time, index) => {
+            response += `Time ${index + 1}:\n`;
             time.forEach((jogador, idx) => {
-                mensagem += `${idx + 1} - ${jogador}\n`;
+                response += `${idx + 1} - ${jogador}\n`;
             });
-            mensagem += '\n';
+            response += '\n';
         });
-        message.reply(mensagem);
+        message.reply(response);
     }
 }
 
 // Função para responder à próxima partida na sequência
 function handleNextMatch(message) {
-    if (loser == null && partidaAtual.length > 0) {
+    if (loser == null && currentMatch.length > 0) {
         message.reply('perdedor não informado.');
         return;
     }
-    if (times.length == 0) {
-        message.reply('Times não sorteados.');
+    if (teams.length == 0) {
+        message.reply('Os times ainda não foram sorteados.');
         return;
     }
 
-    let time1 = times[proximoTimeIndex];
-    let time2 = times[(proximoTimeIndex + 1) % times.length];
+    let team1 = teams[nextTeamIndex];
+    let team2 = teams[(nextTeamIndex + 1) % teams.length];
     if (loser) {
-        time1 = times[partidaAtual[0]];
-        time2 = times[proximoTimeIndex + 1];
-        partidaAtual = [partidaAtual[0], proximoTimeIndex + 1];
+        team1 = teams[currentMatch[0]];
+        team2 = teams[nextTeamIndex + 1];
+        currentMatch = [currentMatch[0], nextTeamIndex + 1];
     } else {
-        partidaAtual = [proximoTimeIndex, proximoTimeIndex + 1];
+        currentMatch = [nextTeamIndex, nextTeamIndex + 1];
     }
 
-    let mensagem = `Próxima partida:\n\n`;
-    mensagem += `*Partida ${proximaPartidaIndex + 1} * \n *Time ${partidaAtual[0] + 1}*\n`;
-    mensagem += `${formatarJogadores(time1)} \n\n vs  \n *Time ${partidaAtual[1] + 1}* \n\n ${formatarJogadores(time2)}\n\n`;
+    let messageText = `Próxima partida:\n\n`;
+    messageText += `*Partida ${nextMatchIndex + 1} * \n *Time ${currentMatch[0] + 1}*\n`;
+    messageText += `${formatPlayersResponse(team1)} \n\n vs  \n *Time ${currentMatch[1] + 1}* \n\n ${formatPlayersResponse(team2)}\n\n`;
 
     if (loser == null) {
-        proximoTimeIndex = (proximoTimeIndex + 1) % times.length; // Avança para o próximo time na sequência circular
+        nextTeamIndex = (nextTeamIndex + 1) % teams.length;
     } else {
         loser = null;
-        proximoTimeIndex++;
+        nextTeamIndex++;
     }
 
-    proximaPartidaIndex++;
-    message.reply(mensagem);
+    nextMatchIndex++;
+    message.reply(messageText);
 }
 
 // define que ouve empate
 function handleMatchDraw(message) {
-    if (times.length == 0) {
-        message.reply('Times não sorteados.');
+    if (teams.length == 0) {
+        message.reply('Os times ainda não foram sorteados.');
         return;
     }
 
-    if (partidaAtual.length == 0) {
+    if (currentMatch.length == 0) {
         message.reply('Nenhuma partida encontrada.');
         return;
     }
-    partidaAtual = [];
+    currentMatch = [];
     loser = null;
-    proximoTimeIndex++;
+    nextTeamIndex++;
     handleNextMatch(message);
 }
 
 //exibe a partida atual
 function handleShowCurrentMatch(message, title = "Partida Atual") {
-    if (times.length == 0) {
+    if (teams.length == 0) {
         message.reply('Times não sorteados.');
         return;
     }
 
-    let time1 = times[partidaAtual[0]];
-    let time2 = times[partidaAtual[1]];
+    let team1 = teams[currentMatch[0]];
+    let team2 = teams[currentMatch[1]];
 
-    let mensagem = `${title}:\n\n`;
-    mensagem += `Partida ${proximaPartidaIndex} - Time ${partidaAtual[0] + 1} vs Time ${partidaAtual[1] + 1}:\n`;
-    mensagem += `${formatarJogadores(time1)} \n\n vs \n\n ${formatarJogadores(time2)}\n\n`;
-    message.reply(mensagem);
+    let messageText = `${title}:\n\n`;
+    messageText += `Partida ${nextMatchIndex} - Time ${currentMatch[0] + 1} vs Time ${currentMatch[1] + 1}\n\n`;
+    messageText += `*Time ${currentMatch[0] + 1}*\n`;
+    messageText += formatPlayersResponse(team1);
+    messageText += `\n\n vs \n\n*Time ${currentMatch[1] + 1}*\n`;
+    messageText += formatPlayersResponse(team2);
 
+    message.reply(messageText);
 }
 
-// Função para registrar a derrota de um time e reordenar a lista de times
+
+// Função para registrar a derrota de um time e reordenar a lista de teams
 function handleTeamLost(message, teamNumber) {
 
-    if (partidaAtual.length == 0) {
+    if (currentMatch.length == 0) {
         message.reply('não existe partida em andamento.');
         return;
     }
-    if (!partidaAtual.includes(teamNumber - 1)) {
+    if (!currentMatch.includes(teamNumber - 1)) {
         message.reply('O time informado não se encotra na partida atual');
         return;
     }
 
-    let perderdor = times[teamNumber - 1];
+    let perderdor = teams[teamNumber - 1];
     loser = teamNumber - 1;
 
-    let vencedor = partidaAtual.find(time => time != loser);
-    partidaAtual = [vencedor];
+    let vencedor = currentMatch.find(time => time != loser);
+    currentMatch = [vencedor];
 
     perderdor.forEach(player => {
         handleAddPlayerToLastTeam(player)
@@ -338,8 +348,8 @@ async function handleAddPlayer(message, player) {
         message.reply('Apenas o administrador do grupo pode adicionar jogadores livremente.');
         return;
     }
-    confirmados.push(player);
-    if (times.length > 0) {
+    confirmedPlayers.push(player);
+    if (teams.length > 0) {
         handleAddPlayerToLastTeam(player);
         handleShowTeams(message);
         return;
@@ -353,7 +363,7 @@ async function handleRemovePlayer(message, player) {
         message.reply('Apenas o administrador do grupo pode remover jogadores livremente.');
         return;
     }
-    if (times.length > 0) {
+    if (teams.length > 0) {
         removePlayerFromTeams(player);
         handleShowTeams(message);
         return;
@@ -363,124 +373,123 @@ async function handleRemovePlayer(message, player) {
 }
 
 function removePlayerFromTeams(player) {
-    times = times.map((time, index) => {
-        if (proximoTimeIndex <= index || partidaAtual.includes(index)) {
-            const i = time.findIndex(p => p.toLowerCase().trim() == player.toLowerCase().trim());
+    teams = teams.map((team, index) => {
+        if (nextTeamIndex <= index || currentMatch.includes(index)) {
+            const i = team.findIndex(p => p.toLowerCase().trim() == player.toLowerCase().trim());
             if (i !== -1) {
-                time.splice(i, 1);
+                team.splice(i, 1);
             }
         }
-        return time;
+        return team;
     });
-    handleReorderTimes();
+    handleRearrangeTeams();
 }
 
-//adiciona um jogador ao final dos times
+//adiciona um jogador ao final dos teams
 function handleAddPlayerToLastTeam(player) {
-    let ultimoTime = times[times.length - 1];
-    if (ultimoTime.length < 5) {
-        ultimoTime.push(player);
+    let lastTeam = teams[teams.length - 1];
+    if (lastTeam.length < 5) {
+        lastTeam.push(player);
     } else {
-        times.push([player])
+        teams.push([player])
     }
 }
 
-function handleReorderTimes() {
-    const maxPlayers = 5;
-    for (let i = 0; i < times.length - 1; i++) {
-        while (times[i].length < maxPlayers && times[i + 1].length > 0) {
-            let proximoTime = times[i + 1];
-            let indexTime = i + 1;
-            while (partidaAtual.includes(indexTime)) {
-                indexTime++;
-                proximoTime = times[indexTime];
+function handleRearrangeTeams(Teams) {
+    for (let i = 0; i < teams.length - 1; i++) {
+        while (teams[i].length < maxPlayerForTeam && teams[i + 1].length > 0) {
+            let nextTeam = teams[i + 1];
+            let teamIndex = i + 1;
+            while (currentMatch.includes(teamIndex)) {
+                teamIndex++;
+                nextTeam = teams[teamIndex];
             }
-            times[i].push(proximoTime.shift());
+            teams[i].push(nextTeam.shift());
         }
     }
     // Remove empty arrays
-    times = times.filter(subArray => subArray.length > 0);
+    teams = teams.filter(a => a.length > 0);
 
 }
 
 // Função para exibir a lista de comandos disponíveis
 function handleHelp(message) {
-    let resposta = `*📋 Lista de comandos disponíveis:*\n\n`;
-    resposta += `- *${COMMAND_ENTER}*: _Para entrar na lista de confirmados._ ✅\n`;
-    resposta += `- *${COMMAND_CANCEL}*: _Para cancelar o jogo de futebol._ ❌\n`;
-    resposta += `- *${COMMAND_OPEN}*: _Para abrir a lista para adições._ 📂\n`;
-    resposta += `- *${COMMAND_LEAVE}*: _Para sair da lista de confirmados._ 🚪\n`;
-    resposta += `- *${COMMAND_DRAW}*: _Para sortear os times._ 🎲\n`;
-    resposta += `- *${COMMAND_NEXT}*: _Para ver a próxima partida na sequência._ ⏭️\n`;
-    resposta += `- *${COMMAND_HELP}*: _Para ver esta lista de comandos novamente._ 🆘\n`;
-    resposta += `- *${COMMAND_SHOW_TEAMS}*: _Para ver os times sorteados._ 👥\n`;
-    resposta += `- *${COMMAND_CURRENT_MATCH}*: Para ver a partida atual._ ⚽\n`;
+    let response = `*📋 Lista de comandos disponíveis:*\n\n`;
+    response += `- *${COMMAND_ENTER}*: _Para entrar na lista de confirmedPlayers._ ✅\n`;
+    response += `- *${COMMAND_CANCEL}*: _Para cancelar o jogo de futebol._ ❌\n`;
+    response += `- *${COMMAND_OPEN}*: _Para abrir a lista para adições._ 📂\n`;
+    response += `- *${COMMAND_LEAVE}*: _Para sair da lista de confirmedPlayers._ 🚪\n`;
+    response += `- *${COMMAND_DRAW}*: _Para sortear os teams._ 🎲\n`;
+    response += `- *${COMMAND_NEXT}*: _Para ver a próxima partida na sequência._ ⏭️\n`;
+    response += `- *${COMMAND_HELP}*: _Para ver esta lista de comandos novamente._ 🆘\n`;
+    response += `- *${COMMAND_SHOW_TEAMS}*: _Para ver os teams sorteados._ 👥\n`;
+    response += `- *${COMMAND_CURRENT_MATCH}*: Para ver a partida atual._ ⚽\n`;
 
-    message.reply(resposta);
+    message.reply(response);
 
 
 }
 
-// Função para formatar a lista de confirmados
-function formatarListaConfirmados() {
-    let lista = `*FUTEBOL DE TERÇA* ⚽\n\n`;
-    lista += ` 📍Local: Tiba Sport Center\n\n`;
-    lista += ` 🗓️ Data: ${obterDataProximaTerca()}\n\n`;
-    lista += ` Nível: Amador\n\n`;
-    lista += ` 🕰️ Horário: 21:00 as 20:00 (PODENDO SER ESTENDIDO)\n\n`;
-    lista += ` ⏳ Duração: 1 hora\n\n`;
-    lista += ` 🤑 PIX: Luiz: luizmarcelo258@gmail.com\n\n`;
-    lista += ` 🥅 PARTIU, JOGAR!!! \n\n`;
+// Função para formatar a lista de confirmedPlayers
+function formatPlayersList() {
+    let response = `*FUTEBOL DE TERÇA* ⚽\n\n`;
+    response += ` 📍Local: Tiba Sport Center\n\n`;
+    response += ` 🗓️ Data: ${nextWeekDay()}\n\n`;
+    response += ` Nível: Amador\n\n`;
+    response += ` 🕰️ Horário: 21:00 as 20:00 (PODENDO SER ESTENDIDO)\n\n`;
+    response += ` ⏳ Duração: 1 hora\n\n`;
+    response += ` 🤑 PIX: Luiz: luizmarcelo258@gmail.com\n\n`;
+    response += ` 🥅 PARTIU, JOGAR!!! \n\n`;
 
-    lista += ` *Lista de atletas:* \n\n`;
+    response += ` *Lista de atletas:* \n\n`;
 
-    confirmados.forEach((nome, index) => {
+    confirmedPlayers.forEach((name, index) => {
         if ((index + 1) == 18) {
-            lista += `\n\n **Lista de espera:** \n\n`;
+            response += `\n\n **Lista de espera:** \n\n`;
         }
-        lista += `${index + 1} - ${nome}\n`;
+        response += `${index + 1} - ${name}\n`;
     });
-    return lista;
+    return response;
 }
 
 // Função para obter a data da próxima terça-feira
-function obterDataProximaTerca() {
-    let hoje = new Date();
-    let proximaTerca = new Date(hoje);
-    proximaTerca.setDate(hoje.getDate() + ((2 - hoje.getDay() + 7) % 7) + 1); // Calcula a próxima terça-feira
-    return proximaTerca.toLocaleDateString('pt-BR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+function nextWeekDay() {
+    let today = new Date();
+    let nextDay = new Date(today);
+    nextDay.setDate(today.getDate() + ((2 - today.getDay() + 7) % 7) + 1); // Calcula a próxima terça-feira
+    return nextDay.toLocaleDateString('pt-BR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 }
 
-// Função para sortear os jogadores em times
-function sortearTimes() {
-    if (confirmados.length < 10) {
-        return 'Não há jogadores suficientes para formar times.';
+// Função para sortear os jogadores em teams
+function suffleTeams() {
+    if (confirmedPlayers.length < 10) {
+        return 'Não há jogadores suficientes para formar teams.';
     }
-    let cloneConfirmados = [...confirmados];
-    let jogadoresEmbaralhados = cloneConfirmados.sort(() => Math.random() - 0.5);
-    let numeroTimes = Math.ceil(confirmados.length / 5);
-    times = [];
+    let cloneconfirmedPlayers = [...confirmedPlayers];
+    let jogadoresEmbaralhados = cloneconfirmedPlayers.sort(() => Math.random() - 0.5);
+    let numeroteams = Math.ceil(confirmedPlayers.length / 5);
+    teams = [];
 
-    for (let i = 0; i < numeroTimes; i++) {
+    for (let i = 0; i < numeroteams; i++) {
         let time = jogadoresEmbaralhados.slice(i * 5, (i + 1) * 5);
-        times.push(time);
+        teams.push(time);
     }
 
-    let mensagem = 'Times sorteados:\n\n';
-    times.forEach((time, index) => {
-        mensagem += `Time ${index + 1}:\n`;
+    let response = 'teams sorteados:\n\n';
+    teams.forEach((time, index) => {
+        response += `Time ${index + 1}:\n`;
         time.forEach((jogador, idx) => {
-            mensagem += `${idx + 1} - ${jogador}\n`;
+            response += `${idx + 1} - ${jogador}\n`;
         });
-        mensagem += '\n';
+        response += '\n';
     });
 
-    return mensagem;
+    return response;
 }
 
 // Função para formatar os jogadores de um time
-function formatarJogadores(time) {
-    return time.map((jogador, idx) => `${idx + 1} - ${jogador}`).join('\n');
+function formatPlayersResponse(team) {
+    return team.map((player, idx) => `${idx + 1} - ${player}`).join('\n');
 }
 
 // Inicializar o cliente
