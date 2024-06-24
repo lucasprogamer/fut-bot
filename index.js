@@ -18,8 +18,8 @@ const COMMAND_REMOVE_PLAYER = /remover jogador (.+)$/i;
 const COMMAND_ADD_PLAYER = /adicionar jogador (.+)$/i;
 
 // ID do grupo específico
-// const specificGroup = 'Futebol das Terças ⚽';
-const specificGroup = 'wards';
+const specificGroup = 'Futebol das Terças ⚽';
+// const specificGroup = 'Lolzim - Bora marcar';
 
 // Variáveis para gerenciar os confirmedPlayers e o jogo
 let confirmedPlayers = [
@@ -448,7 +448,7 @@ function nextWeekDay() {
 // Função para sortear os jogadores em teams
 function suffleTeams() {
     if (confirmedPlayers.length < 10) {
-        return 'Não há jogadores suficientes para formar teams.';
+        return 'Não há jogadores suficientes para formar times.';
     }
     let cloneconfirmedPlayers = [...confirmedPlayers];
     let jogadoresEmbaralhados = cloneconfirmedPlayers.sort(() => Math.random() - 0.5);
